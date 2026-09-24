@@ -87,13 +87,22 @@ def get_messages():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, text, created_at FROM messages ORDER BY id DESC LIMIT 10")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        conn.commit()
+        cur.execute("SELECT id, text, created_at FROM messages ORDER BY id DESC LIMIT 20")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        return [{"id": r[0], "text": r[1], "created_at": str(r[2])} for r in rows]
+        items = [{"id": r[0], "text": r[1], "created_at": str(r[2])} for r in rows]
+        return {"status": "ok", "messages": items}
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        return {"status": "error", "messages": [], "detail": str(e)}
 
 @app.post("/api/messages")
 def add_message(payload: dict):
@@ -103,6 +112,14 @@ def add_message(payload: dict):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        conn.commit()
         cur.execute("INSERT INTO messages (text) VALUES (%s) RETURNING id, created_at", (text,))
         res = cur.fetchone()
         conn.commit()
